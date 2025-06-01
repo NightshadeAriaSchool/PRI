@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import zipfile
 import shutil
@@ -6,6 +7,7 @@ import urllib.request
 import sqlalchemy
 from sqlalchemy import create_engine, text
 from typing import Dict, Any
+import requests
 
 class PostgreSQL:
   @staticmethod
@@ -100,99 +102,175 @@ class PostgreSQL:
     print("PostgreSQL server started.")
 
 class Data:
-  class Ability:
-    def __init__(self, id: int, name: str, effect: str, short_effect: str, description: str, generation: int):
+  class PokemonSpecies:
+    def __init__(self, id: int, base_happiness: int, capture_rate: int, gender_rate: int, hatch_counter: int,
+            order: int, generation: int, national_pokedex_number: int, is_baby: bool, is_legendary: bool,
+            is_mythical: bool, color: str, growth_rate: str, habitat: str, shape: str, genera: str, name: str,
+            egg_group: str, varieties: str, description: str):
       self.id = id
-      self.name = name
-      self.effect = effect
-      self.short_effect = short_effect
-      self.description = description
+      self.base_happiness = base_happiness
+      self.capture_rate = capture_rate
+      self.gender_rate = gender_rate
+      self.hatch_counter = hatch_counter
+      self.order = order
       self.generation = generation
-
-    @staticmethod
-    def create_table_sql() -> str:
-      return """
-      CREATE TABLE IF NOT EXISTS ability (
-        id INTEGER PRIMARY KEY,
-        name TEXT,
-        effect TEXT,
-        short_effect TEXT,
-        description TEXT,
-        generation INTEGER
-      );
-      """
-
-    def insert_sql(self) -> (str, Dict[str, Any]):
-      return (
-        "INSERT INTO ability (id, name, effect, short_effect, description, generation) VALUES (:id, :name, :effect, :short_effect, :description, :generation);",
-        self.__dict__
-      )
-
-  class Move:
-    def __init__(self, id: int, name: str, accuracy: int, damage_class: str, effect_chance: int, generation: int,
-            ailment: str, ailment_chance: int, crit_rate: int, drain: int, flinch_chance: int, healing: int,
-            max_hits: int, max_turns: int, min_hits: int, min_turns: int, stat_chance: int, power: int, pp: int,
-            priority: int, target: str, type: str, description: str):
-      self.id = id
+      self.national_pokedex_number = national_pokedex_number
+      self.is_baby = is_baby
+      self.is_legendary = is_legendary
+      self.is_mythical = is_mythical
+      self.color = color
+      self.growth_rate = growth_rate
+      self.habitat = habitat
+      self.shape = shape
+      self.genera = genera
       self.name = name
-      self.accuracy = accuracy
-      self.damage_class = damage_class
-      self.effect_chance = effect_chance
-      self.generation = generation
-      self.ailment = ailment
-      self.ailment_chance = ailment_chance
-      self.crit_rate = crit_rate
-      self.drain = drain
-      self.flinch_chance = flinch_chance
-      self.healing = healing
-      self.max_hits = max_hits
-      self.max_turns = max_turns
-      self.min_hits = min_hits
-      self.min_turns = min_turns
-      self.stat_chance = stat_chance
-      self.power = power
-      self.pp = pp
-      self.priority = priority
-      self.target = target
-      self.type = type
+      self.egg_group = egg_group
+      self.varieties = varieties
       self.description = description
 
     @staticmethod
     def create_table_sql() -> str:
       return """
-      CREATE TABLE IF NOT EXISTS move (
+      CREATE TABLE IF NOT EXISTS pokemon_species (
         id INTEGER PRIMARY KEY,
-        name TEXT,
-        accuracy INTEGER,
-        damage_class TEXT,
-        effect_chance INTEGER,
+        base_happiness INTEGER,
+        capture_rate INTEGER,
+        gender_rate INTEGER,
+        hatch_counter INTEGER,
+        "order" INTEGER,
         generation INTEGER,
-        ailment TEXT,
-        ailment_chance INTEGER,
-        crit_rate INTEGER,
-        drain INTEGER,
-        flinch_chance INTEGER,
-        healing INTEGER,
-        max_hits INTEGER,
-        max_turns INTEGER,
-        min_hits INTEGER,
-        min_turns INTEGER,
-        stat_chance INTEGER,
-        power INTEGER,
-        pp INTEGER,
-        priority INTEGER,
-        target TEXT,
-        type TEXT,
+        national_pokedex_number INTEGER,
+        is_baby BOOLEAN,
+        is_legendary BOOLEAN,
+        is_mythical BOOLEAN,
+        color TEXT,
+        growth_rate TEXT,
+        habitat TEXT,
+        shape TEXT,
+        genera TEXT,
+        name TEXT,
+        egg_group TEXT,
+        varieties TEXT,
         description TEXT
       );
       """
 
-    def insert_sql(self) -> (str, Dict[str, Any]):
+    def insert_sql(self) -> tuple[str, Dict[str, Any]]:
       return (
-        "INSERT INTO move (id, name, accuracy, damage_class, effect_chance, generation, ailment, ailment_chance, crit_rate, drain, flinch_chance, healing, max_hits, max_turns, min_hits, min_turns, stat_chance, power, pp, priority, target, type, description) VALUES (:id, :name, :accuracy, :damage_class, :effect_chance, :generation, :ailment, :ailment_chance, :crit_rate, :drain, :flinch_chance, :healing, :max_hits, :max_turns, :min_hits, :min_turns, :stat_chance, :power, :pp, :priority, :target, :type, :description);",
+        "INSERT INTO pokemon_species (id, base_happiness, capture_rate, gender_rate, hatch_counter, \"order\", generation, national_pokedex_number, is_baby, is_legendary, is_mythical, color, growth_rate, habitat, shape, genera, name, egg_group, varieties, description) VALUES (:id, :base_happiness, :capture_rate, :gender_rate, :hatch_counter, :order, :generation, :national_pokedex_number, :is_baby, :is_legendary, :is_mythical, :color, :growth_rate, :habitat, :shape, :genera, :name, :egg_group, :varieties, :description);",
         self.__dict__
       )
 
+    @staticmethod
+    def from_json(json:str) -> 'Data.PokemonSpecies':
+      #Needs species
+      #Needs evolution-chain
+      #Needs shape (optional)
+      
+      #Ignoring flavor_text_entries
+      #Ignoring form_descriptions
+      #Ignoring forms_switchable
+      #Ignoring has_gender_differences
+      #Ignoring pal_park_encounters
+      
+      #Simplified pokémon numbers
+      
+      pokemon_dict = {}
+      
+      for key in ['base_happiness', 'capture_rate', 'gender_rate', 'hatch_counter', 'id', 'order', 'is_baby', 'is_legendary', 'is_mythical']:
+        pokemon_dict[key] = json[key]
+      
+      for key in ['color', 'growth_rate', 'habitat', 'shape']:
+        pokemon_dict[key] = json[key]['name'].replace("-", " ") if json[key] else None
+      
+      #Egg groups
+      pokemon_dict['egg_group'] = str([g['name'] for g in json['egg_groups']]) if json['egg_groups'] else None
+      
+      #Genera
+      pokemon_dict['genera'] = ""
+      for l in json['genera']:
+        if l['language']['name'] == 'en':
+          pokemon_dict['genera'] = l['genus']
+      
+      #Generation
+      pokemon_dict['generation'] = Data.get_url_index(json['generation']['url'])
+      
+      #Name
+      try:
+        pokemon_dict['name'] = json['name']
+        for l in json['names']:
+          if l['language']['name'] == 'en':
+            pokemon_dict['name'] = l['name']
+      except:
+        pass
+      
+      #National Pokédex number
+      try:
+        pokemon_dict['national_pokedex_number'] = -1
+        for l in json['pokedex_numbers']:
+          if l['pokedex']['name'] == 'national':
+            pokemon_dict['national_pokedex_number'] = l['entry_number']
+      except:
+        pass
+      
+      #Varieties
+      try:
+        pokemon_dict['varieties'] = ""
+        for i, s in enumerate([Data.get_url_index(v['pokemon']['url']) for v in json['varieties']]):
+          pokemon_dict['varieties'] += str(s)
+          if i > 0:
+            pokemon_dict['varieties'] += ", "
+        pokemon_dict['varieties'] = "[" + pokemon_dict['varieties'] + "]"
+      except:
+        pass
+      
+      #Description
+      pokemon_dict['description'] = "No description."
+      try:
+        for l in json['flavor_text_entries']:
+          if l['language']['name'] == "en":
+            pokemon_dict['description'] = l['flavor_text']
+      except:
+        pass
+
+      return Data.PokemonSpecies(
+        id=pokemon_dict.get('id'),
+        base_happiness=pokemon_dict.get('base_happiness'),
+        capture_rate=pokemon_dict.get('capture_rate'),
+        gender_rate=pokemon_dict.get('gender_rate'),
+        hatch_counter=pokemon_dict.get('hatch_counter'),
+        order=pokemon_dict.get('order'),
+        generation=pokemon_dict.get('generation'),
+        national_pokedex_number=pokemon_dict.get('national_pokedex_number'),
+        is_baby=pokemon_dict.get('is_baby'),
+        is_legendary=pokemon_dict.get('is_legendary'),
+        is_mythical=pokemon_dict.get('is_mythical'),
+        color=pokemon_dict.get('color'),
+        growth_rate=pokemon_dict.get('growth_rate'),
+        habitat=pokemon_dict.get('habitat'),
+        shape=pokemon_dict.get('shape'),
+        genera=pokemon_dict.get('genera'),
+        name=pokemon_dict.get('name'),
+        egg_group=pokemon_dict.get('egg_group'),
+        varieties=pokemon_dict.get('varieties'),
+        description=pokemon_dict.get('description')
+      )
+      
+    @staticmethod
+    def read() -> list['Data.PokemonSpecies']:
+      url = "https://pokeapi.co/api/v2/pokemon-species?limit=100000"
+      response = requests.get(url)
+      results = response.json().get("results", [])
+      
+      abilities = []
+      for entry in results:
+        ability_url = entry.get("url")
+        if not ability_url:
+          continue
+        ability_json = requests.get(ability_url).json()
+        abilities.append(Data.Ability.from_json(ability_json))
+      return abilities
+  
   class Pokemon:
     def __init__(self, id: int, base_experience: int, height: int, weight: int, order: int, primary_ability: int,
             secondary_ability: int, hidden_ability: int, species: int, hp: int, hp_effort: int, attack: int,
@@ -278,169 +356,136 @@ class Data:
       );
       """
 
-    def insert_sql(self) -> (str, Dict[str, Any]):
+    def insert_sql(self) -> tuple[str, Dict[str, Any]]:
       return (
         "INSERT INTO pokemon (id, base_experience, height, weight, \"order\", primary_ability, secondary_ability, hidden_ability, species, hp, hp_effort, attack, attack_effort, defense, defense_effort, special_attack, special_attack_effort, special_defense, special_defense_effort, speed, speed_effort, sprite_front_default, sprite_front_female, sprite_front_shiny_female, sprite_front_shiny, sprite_back_default, sprite_back_female, sprite_back_shiny_female, sprite_back_shiny, cry, cry_legacy, name, primary_type, secondary_type) VALUES (:id, :base_experience, :height, :weight, :order, :primary_ability, :secondary_ability, :hidden_ability, :species, :hp, :hp_effort, :attack, :attack_effort, :defense, :defense_effort, :special_attack, :special_attack_effort, :special_defense, :special_defense_effort, :speed, :speed_effort, :sprite_front_default, :sprite_front_female, :sprite_front_shiny_female, :sprite_front_shiny, :sprite_back_default, :sprite_back_female, :sprite_back_shiny_female, :sprite_back_shiny, :cry, :cry_legacy, :name, :primary_type, :secondary_type);",
         self.__dict__
       )
 
-  class PokemonSpecies:
-    def __init__(self, id: int, base_happiness: int, capture_rate: int, gender_rate: int, hatch_counter: int,
-            order: int, generation: int, national_pokedex_number: int, is_baby: bool, is_legendary: bool,
-            is_mythical: bool, color: str, growth_rate: str, habitat: str, shape: str, genera: str, name: str,
-            egg_group: str, varieties: str, description: str):
-      self.id = id
-      self.base_happiness = base_happiness
-      self.capture_rate = capture_rate
-      self.gender_rate = gender_rate
-      self.hatch_counter = hatch_counter
-      self.order = order
-      self.generation = generation
-      self.national_pokedex_number = national_pokedex_number
-      self.is_baby = is_baby
-      self.is_legendary = is_legendary
-      self.is_mythical = is_mythical
-      self.color = color
-      self.growth_rate = growth_rate
-      self.habitat = habitat
-      self.shape = shape
-      self.genera = genera
-      self.name = name
-      self.egg_group = egg_group
-      self.varieties = varieties
-      self.description = description
-
     @staticmethod
-    def create_table_sql() -> str:
-      return """
-      CREATE TABLE IF NOT EXISTS pokemon_species (
-        id INTEGER PRIMARY KEY,
-        base_happiness INTEGER,
-        capture_rate INTEGER,
-        gender_rate INTEGER,
-        hatch_counter INTEGER,
-        "order" INTEGER,
-        generation INTEGER,
-        national_pokedex_number INTEGER,
-        is_baby BOOLEAN,
-        is_legendary BOOLEAN,
-        is_mythical BOOLEAN,
-        color TEXT,
-        growth_rate TEXT,
-        habitat TEXT,
-        shape TEXT,
-        genera TEXT,
-        name TEXT,
-        egg_group TEXT,
-        varieties TEXT,
-        description TEXT
-      );
-      """
-
-    def insert_sql(self) -> (str, Dict[str, Any]):
-      return (
-        "INSERT INTO pokemon_species (id, base_happiness, capture_rate, gender_rate, hatch_counter, \"order\", generation, national_pokedex_number, is_baby, is_legendary, is_mythical, color, growth_rate, habitat, shape, genera, name, egg_group, varieties, description) VALUES (:id, :base_happiness, :capture_rate, :gender_rate, :hatch_counter, :order, :generation, :national_pokedex_number, :is_baby, :is_legendary, :is_mythical, :color, :growth_rate, :habitat, :shape, :genera, :name, :egg_group, :varieties, :description);",
-        self.__dict__
+    def from_json(json:str) -> 'Data.Move':
+      #Needs abilities
+      #Needs move
+      #Needs pokemon-species
+      
+      #Relation move
+      
+      #Ignoring forms
+      #Ignoring game_indices
+      #Ignoring held_items
+      #Ignoring location_area_encounters
+      #Ignoring past_abilities
+      #Ignoring past_types
+      
+      pokemon_dict = {}
+      
+      #Abilities
+      pokemon_dict['primary_ability'] = -1
+      pokemon_dict['secondary_ability'] = -1
+      pokemon_dict['hidden_ability'] = -1
+      ability_keys = ['', 'primary_ability', 'secondary_ability', 'hidden_ability']
+      for a in json['abilities']:
+        value = Data.get_url_index(a['ability']['url'])
+        key = ability_keys[a['slot']]
+        pokemon_dict[key] = value
+      
+      for key in ['base_experience', 'height', 'weight', 'id', 'order', 'name']:
+        pokemon_dict[key] = json[key]
+      
+      for side in ['front', 'back']:
+        for sp in ['default', 'female', 'shiny_female', 'shiny']:
+          pokemon_dict['sprite_' + side + '_' + sp] = json['sprites'][side + '_' + sp]
+      
+      #Cries
+      pokemon_dict['cry'] = json['cries']['latest']
+      pokemon_dict['cry_legacy'] = json['cries']['legacy']
+      
+      #Species
+      pokemon_dict['species'] = Data.get_url_index(json['species']['url'])
+  
+      #Stats
+      for stat in json['stats']:
+        key = stat['stat']['name'].replace("-", "_")
+        value = stat['base_stat']
+        effort = stat['effort']
+        pokemon_dict[key] = value
+        pokemon_dict[key + '_effort'] = effort
+  
+      #Types
+      pokemon_dict['primary_type'] = json['types'][0]['type']['name'] if len(json['types']) > 0 else None
+      pokemon_dict['secondary_type'] = json['types'][1]['type']['name'] if len(json['types']) > 1 else None
+  
+      return Data.Pokemon(
+        id=pokemon_dict.get('id'),
+        base_experience=pokemon_dict.get('base_experience'),
+        height=pokemon_dict.get('height'),
+        weight=pokemon_dict.get('weight'),
+        order=pokemon_dict.get('order'),
+        primary_ability=pokemon_dict.get('primary_ability'),
+        secondary_ability=pokemon_dict.get('secondary_ability'),
+        hidden_ability=pokemon_dict.get('hidden_ability'),
+        species=pokemon_dict.get('species'),
+        hp=pokemon_dict.get('hp'),
+        hp_effort=pokemon_dict.get('hp_effort'),
+        attack=pokemon_dict.get('attack'),
+        attack_effort=pokemon_dict.get('attack_effort'),
+        defense=pokemon_dict.get('defense'),
+        defense_effort=pokemon_dict.get('defense_effort'),
+        special_attack=pokemon_dict.get('special_attack'),
+        special_attack_effort=pokemon_dict.get('special_attack_effort'),
+        special_defense=pokemon_dict.get('special_defense'),
+        special_defense_effort=pokemon_dict.get('special_defense_effort'),
+        speed=pokemon_dict.get('speed'),
+        speed_effort=pokemon_dict.get('speed_effort'),
+        sprite_front_default=pokemon_dict.get('sprite_front_default'),
+        sprite_front_female=pokemon_dict.get('sprite_front_female'),
+        sprite_front_shiny_female=pokemon_dict.get('sprite_front_shiny_female'),
+        sprite_front_shiny=pokemon_dict.get('sprite_front_shiny'),
+        sprite_back_default=pokemon_dict.get('sprite_back_default'),
+        sprite_back_female=pokemon_dict.get('sprite_back_female'),
+        sprite_back_shiny_female=pokemon_dict.get('sprite_back_shiny_female'),
+        sprite_back_shiny=pokemon_dict.get('sprite_back_shiny'),
+        cry=pokemon_dict.get('cry'),
+        cry_legacy=pokemon_dict.get('cry_legacy'),
+        name=pokemon_dict.get('name'),
+        primary_type=pokemon_dict.get('primary_type'),
+        secondary_type=pokemon_dict.get('secondary_type')
       )
-
-  class PokemonMove:
-    def __init__(self, pokemon: int, move: int, level_learned_at: int, learn_method: str):
-      self.pokemon = pokemon
-      self.move = move
-      self.level_learned_at = level_learned_at
-      self.learn_method = learn_method
-
+      
     @staticmethod
-    def create_table_sql() -> str:
-      return """
-      CREATE TABLE IF NOT EXISTS pokemon_move (
-        pokemon INTEGER REFERENCES pokemon(id),
-        move INTEGER REFERENCES move(id),
-        level_learned_at INTEGER,
-        learn_method TEXT
-      );
-      """
+    def read() -> list['Data.Move']:
+      url = "https://pokeapi.co/api/v2/pokemon?limit=100000"
+      response = requests.get(url)
+      results = response.json().get("results", [])
+      
+      abilities = []
+      for entry in results:
+        ability_url = entry.get("url")
+        if not ability_url:
+          continue
+        ability_json = requests.get(ability_url).json()
+        abilities.append(Data.Ability.from_json(ability_json))
+      return abilities
+    
+  @staticmethod
+  def get_url_index(url:str):
+    segments = url.rstrip('/').split('/')
+    
+    return int(segments[-1])
+      
+  @staticmethod
+  def fetch_json(name:str, id:int|None=None):
+    url = f'https://pokeapi.co/api/v2/{name}'
+    if id is None:
+      url = url + "?limit=100000&offset=0"
+    else:
+      url = url + f'/{id}/'
 
-    def insert_sql(self) -> (str, Dict[str, Any]):
-      return (
-        "INSERT INTO pokemon_move (pokemon, move, level_learned_at, learn_method) VALUES (:pokemon, :move, :level_learned_at, :learn_method);",
-        self.__dict__
-      )
+    response = requests.get(url)
 
-  class EvolutionChain:
-    def __init__(self, id: int, from_id: int, to_id: int, gender: int, min_beauty: int, min_happiness: int,
-            min_level: int, trade_species: str, relative_physical_stats: int, item: str, held_item: str,
-            known_move: str, known_move_type: str, trigger: str, party_species: str, party_type: str,
-            time_of_day: str, needs_overworld_rain: bool, turn_upside_down: bool):
-      self.id = id
-      self.from_id = from_id
-      self.to_id = to_id
-      self.gender = gender
-      self.min_beauty = min_beauty
-      self.min_happiness = min_happiness
-      self.min_level = min_level
-      self.trade_species = trade_species
-      self.relative_physical_stats = relative_physical_stats
-      self.item = item
-      self.held_item = held_item
-      self.known_move = known_move
-      self.known_move_type = known_move_type
-      self.trigger = trigger
-      self.party_species = party_species
-      self.party_type = party_type
-      self.time_of_day = time_of_day
-      self.needs_overworld_rain = needs_overworld_rain
-      self.turn_upside_down = turn_upside_down
+    data = response.json()
 
-    @staticmethod
-    def create_table_sql() -> str:
-      return """
-      CREATE TABLE IF NOT EXISTS evolution_chain (
-        id INTEGER PRIMARY KEY,
-        "from" INTEGER REFERENCES pokemon(id),
-        "to" INTEGER REFERENCES pokemon(id),
-        gender INTEGER,
-        min_beauty INTEGER,
-        min_happiness INTEGER,
-        min_level INTEGER,
-        trade_species TEXT,
-        relative_physical_stats INTEGER,
-        item TEXT,
-        held_item TEXT,
-        known_move TEXT,
-        known_move_type TEXT,
-        trigger TEXT,
-        party_species TEXT,
-        party_type TEXT,
-        time_of_day TEXT,
-        needs_overworld_rain BOOLEAN,
-        turn_upside_down BOOLEAN
-      );
-      """
-
-    def insert_sql(self) -> (str, Dict[str, Any]):
-      return (
-        "INSERT INTO evolution_chain (id, \"from\", \"to\", gender, min_beauty, min_happiness, min_level, trade_species, relative_physical_stats, item, held_item, known_move, known_move_type, trigger, party_species, party_type, time_of_day, needs_overworld_rain, turn_upside_down) VALUES (:id, :from_id, :to_id, :gender, :min_beauty, :min_happiness, :min_level, :trade_species, :relative_physical_stats, :item, :held_item, :known_move, :known_move_type, :trigger, :party_species, :party_type, :time_of_day, :needs_overworld_rain, :turn_upside_down);",
-        {
-          "id": self.id,
-          "from_id": self.from_id,
-          "to_id": self.to_id,
-          "gender": self.gender,
-          "min_beauty": self.min_beauty,
-          "min_happiness": self.min_happiness,
-          "min_level": self.min_level,
-          "trade_species": self.trade_species,
-          "relative_physical_stats": self.relative_physical_stats,
-          "item": self.item,
-          "held_item": self.held_item,
-          "known_move": self.known_move,
-          "known_move_type": self.known_move_type,
-          "trigger": self.trigger,
-          "party_species": self.party_species,
-          "party_type": self.party_type,
-          "time_of_day": self.time_of_day,
-          "needs_overworld_rain": self.needs_overworld_rain,
-          "turn_upside_down": self.turn_upside_down
-        }
-      )
-
+    return data
+  
+  
+  
