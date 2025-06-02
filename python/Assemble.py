@@ -1,4 +1,5 @@
 from __future__ import annotations
+import sys
 import os
 import zipfile
 import shutil
@@ -6,11 +7,129 @@ import subprocess
 import urllib.request
 import sqlalchemy
 from sqlalchemy import create_engine, text
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import requests
 import threading
 
-class PostgreSQL:
+class PostgreSQLLinux:
+    @staticmethod
+    def is_installed() -> bool:
+      try:
+        subprocess.check_call(["psql", "--version"])
+        return True
+      except FileNotFoundError:
+        return False
+    
+    # Install to posgresql folder
+    @staticmethod
+    def install() -> None:
+      print("Checking if PostgreSQL is installed...")
+      try:
+        subprocess.check_call(["psql", "--version"])
+        print("PostgreSQL is already installed.")
+      except FileNotFoundError:
+        print("PostgreSQL is not installed. Installing...")
+        subprocess.check_call(["sudo", "apt-get", "install", "-y", "postgresql", "postgresql-contrib"])
+        print("PostgreSQL installation complete.")
+
+    @staticmethod
+    def is_initialized() -> bool:
+        db_dir = os.path.abspath("Database")
+        return os.path.isfile(os.path.join(db_dir, "PG_VERSION"))
+
+    @staticmethod
+    def create_db() -> None:
+      """
+      Initialize the database.
+      """
+      
+      subprocess.check_call(["mkdir", "-p", "Database"])
+      subprocess.check_call(["sudo", "-u", "postgres", "initdb", "-D", os.path.abspath("Database"), "--username=postgres", "--encoding=UTF8", "--no-locale"])
+      print("PostgreSQL database initialized at:", os.path.abspath("Database"))
+      print("You can now start the PostgreSQL server with 'pg_ctl -D Database start'.")
+
+    @staticmethod
+    def run() -> None:
+        db_dir = os.path.abspath("Database")
+        print("Starting PostgreSQL server...")
+        subprocess.check_call([
+            "pg_ctl",
+            "-D", db_dir,
+            "-l", os.path.join(db_dir, "logfile.txt"),
+            "start"
+        ])
+        print("PostgreSQL server started.")
+
+    @staticmethod
+    def stop() -> None:
+        db_dir = os.path.abspath("Database")
+        print("Stopping PostgreSQL server...")
+        subprocess.check_call([
+            "pg_ctl",
+            "-D", db_dir,
+            "stop",
+            "-m", "immediate"
+        ])
+        print("PostgreSQL server stopped.")
+
+    @staticmethod
+    def create_engine():
+        return create_engine('postgresql+psycopg2://postgres@localhost:5432/postgres', echo=False)
+
+    @staticmethod
+    def fetch_and_insert_pokemon_data():
+        engine = PostgreSQLLinux.create_engine()
+        with engine.connect() as conn:
+            print("Creating tables if they do not exist...")
+            conn.execute(text(Ability.create_table_sql()))
+            conn.execute(text(PokemonSpecies.create_table_sql()))
+            conn.execute(text(Pokemon.create_table_sql()))
+            print("Tables created.")
+
+            print("Fetching and inserting abilities...")
+            for i, ability in enumerate(Ability.read(), 1):
+                sql, params = ability.insert_sql()
+                conn.execute(text(sql), params)
+                if i % 50 == 0:
+                    print(f"Inserted {i} abilities...")
+
+            print("Fetching and inserting species...")
+            for i, species in enumerate(PokemonSpecies.read(), 1):
+                sql, params = species.insert_sql()
+                conn.execute(text(sql), params)
+                if i % 50 == 0:
+                    print(f"Inserted {i} species...")
+
+            print("Fetching and inserting pokemon...")
+            for i, pokemon in enumerate(Pokemon.read(), 1):
+                sql, params = pokemon.insert_sql()
+                conn.execute(text(sql), params)
+                if i % 50 == 0:
+                    print(f"Inserted {i} pokemon...")
+
+            conn.commit()
+            print("Database commit complete.")
+
+    @staticmethod
+    def uninstall():
+        db_dir = os.path.abspath("Database")
+        print("Stopping PostgreSQL server if running...")
+        try:
+            subprocess.check_call([
+                "pg_ctl",
+                "-D", db_dir,
+                "stop",
+                "-m", "immediate"
+            ])
+            print("Server stopped.")
+        except Exception as e:
+            print("Could not stop server or it wasn't running:", e)
+
+        if os.path.exists(db_dir):
+            print(f"Removing database directory: {db_dir}")
+            shutil.rmtree(db_dir)
+
+class PostgreSQLWindows:
   @staticmethod
   def is_installed() -> bool:
     for path in os.environ["PATH"].split(os.pathsep):
@@ -197,7 +316,9 @@ class PostgreSQL:
     if os.path.exists(UNPACK_DIR):
       print(f"Removing PostgreSQL binaries directory: {os.path.abspath(UNPACK_DIR)}")
       shutil.rmtree(UNPACK_DIR)
-  
+
+PostgreSQL = PostgreSQLWindows if sys.platform.startswith('win') else PostgreSQLLinux
+
 class Data:
   @staticmethod
   def get_url_index(url:str):
@@ -658,11 +779,13 @@ class Ability:
       abilities.append(Ability.from_json(ability_json))
     return abilities
 
-mode = "uninstall"
+mode = sys.argv[1] if len(sys.argv) > 1 else "default"
 
 if __name__ == "__main__":
   if mode == "uninstall" or mode == "reinstall":
     PostgreSQL.uninstall()
+  if mode == "stop":
+    PostgreSQL.stop()
   if mode == "default" or mode == "reinstall":
     run = False
     if not PostgreSQL.is_installed():

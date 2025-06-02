@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pokémon List</title>
+    <style>
+        .pokemon-card {
+            display: inline-block;
+            width: 150px;
+            margin: 10px;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 10px;
+            background: #f0f8ff;
+        }
+    </style>
+</head>
+<body>
+    <h1>All Pokémon</h1>
+    <div id="pokemon-list">Loading...</div>
+
+    <script>
+        async function loadAllPokemon() {
+            const response = await fetch("api/get_pokemon.php");
+            const xmlText = await response.text();
+            const parser = new DOMParser();
+            const xml = parser.parseFromString(xmlText, "application/xml");
+
+            const pokemonElements = xml.querySelectorAll("pokemon");
+            const listDiv = document.getElementById("pokemon-list");
+            listDiv.innerHTML = "";
+
+            pokemonElements.forEach(poke => {
+                const name = poke.querySelector("name")?.textContent || "Unknown";
+                const sprite = poke.querySelector("sprite")?.textContent;
+                const primary = poke.querySelector("primary_type")?.textContent;
+                const secondary = poke.querySelector("secondary_type")?.textContent;
+
+                const types = secondary && secondary !== "null" && secondary !== ""
+                    ? `${primary}/${secondary}`
+                    : primary;
+
+                const html = `
+                    <div class="pokemon-card">
+                        <img src="${sprite}" alt="${name}"><br>
+                        <strong>${name}</strong><br>
+                        <em>${types}</em>
+                    </div>
+                `;
+                listDiv.innerHTML += html;
+            });
+        }
+
+        loadAllPokemon();
+    </script>
+</body>
+</html>

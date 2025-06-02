@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aria's Pokédex</title>
+</head>
+<body>
+    <h1>Welcome to Aria's Pokédex</h1>
+    <p><a href="pokemon.html">Go to Pokémon List</a></p>
+    
+    <h2>Random Pokémon</h2>
+    <div id="random-pokemon">Loading...</div>
+
+    <script>
+        async function loadRandomPokemon() {
+            const response = await fetch("api/get_pokemon.php?random=true");
+            const xmlText = await response.text();
+            const parser = new DOMParser();
+            const xml = parser.parseFromString(xmlText, "application/xml");
+
+            const name = xml.querySelector("name")?.textContent || "Unknown";
+            const sprite = xml.querySelector("sprite")?.textContent;
+
+            const container = document.getElementById("random-pokemon");
+            container.innerHTML = sprite
+                ? `<img src="${sprite}" alt="${name}"><br>${name}`
+                : `No sprite found for ${name}`;
+        }
+
+        loadRandomPokemon();
+    </script>
+</body>
+</html>
