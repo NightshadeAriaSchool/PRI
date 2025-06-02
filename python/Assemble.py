@@ -44,7 +44,7 @@ class PostgreSQLLinux:
       """
       
       subprocess.check_call(["mkdir", "-p", "Database"])
-      subprocess.check_call(["sudo", "-u", "postgres", "initdb", "-D", os.path.abspath("Database"), "--username=postgres", "--encoding=UTF8", "--no-locale"])
+      subprocess.check_call(["sudo", "initdb", "-D", os.path.abspath("Database"), "--username=postgres", "--encoding=UTF8", "--no-locale"])
       print("PostgreSQL database initialized at:", os.path.abspath("Database"))
       print("You can now start the PostgreSQL server with 'pg_ctl -D Database start'.")
 
